@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Student Grade Manager</title>
+<style>
+:root{--bg:#f5f7f4;--surface:#fff;--ink:#1c2b24;--muted:#5d6e65;--line:#d9e0db;--accent:#1f6b4f;--hi:#1f6b4f;--lo:#b3412e;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#121a16;--surface:#1a2520;--ink:#e6efe9;--muted:#93a69b;--line:#2b3a33;--accent:#5cc79a;--hi:#5cc79a;--lo:#ef8b78;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#121a16;--surface:#1a2520;--ink:#e6efe9;--muted:#93a69b;--line:#2b3a33;--accent:#5cc79a;--hi:#5cc79a;--lo:#ef8b78;color-scheme:dark}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Source Serif 4",Georgia,serif;line-height:1.5}
+main{max-width:760px;margin:0 auto;padding:28px 18px 48px}
+h1{font-size:2rem;margin:0 0 4px;letter-spacing:-.01em}
+p.sub{margin:0 0 22px;color:var(--muted)}
+form{display:flex;gap:10px;flex-wrap:wrap;background:var(--surface);border:1px solid var(--line);padding:14px;border-radius:8px}
+input{font:inherit;padding:9px 11px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink)}
+input[name=name]{flex:2 1 180px}input[name=score]{flex:1 1 110px}
+button{font:inherit;cursor:pointer;border:0;border-radius:6px;padding:9px 16px;background:var(--accent);color:var(--bg);font-weight:600}
+button.link{background:none;color:var(--lo);padding:2px 6px;font-weight:400}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:18px 0}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:12px 14px}
+.stat b{display:block;font-size:1.7rem}.stat span{color:var(--muted);font-size:.9rem}
+.stat.hi b{color:var(--hi)}.stat.lo b{color:var(--lo)}
+.wrap{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:8px}
+table{width:100%;border-collapse:collapse;min-width:420px}
+th,td{text-align:left;padding:10px 14px;border-bottom:1px solid var(--line)}
+tr:last-child td{border-bottom:0}th{color:var(--muted);font-weight:600;font-size:.9rem}
+td.n{font-variant-numeric:tabular-nums}
+.msg{color:var(--lo);min-height:1.4em;margin:8px 2px 0}
+.empty{padding:22px;color:var(--muted)}
+.tools{display:flex;gap:10px;margin-top:14px}
+.tools button{background:var(--surface);color:var(--ink);border:1px solid var(--line);font-weight:400}
+@media(max-width:480px){.stats{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<main>
+<h1>Student Grade Manager</h1>
+<p class="sub">Add scores to see the average, highest and lowest, plus a full report.</p>
+<form id="f">
+<input name="name" placeholder="Student name" aria-label="Student name" required>
+<input name="score" type="number" min="0" max="100" step="0.01" placeholder="Score (0–100)" aria-label="Score" required>
+<button>Add student</button>
+</form>
+<div class="msg" id="msg" role="alert"></div>
+<div class="stats" id="stats"></div>
+<div class="wrap" id="report"></div>
+<div class="tools"><button id="csv">Download CSV</button><button id="clear">Clear all</button></div>
+</main>
+<script>
+var students=[];
+try{var s=localStorage.getItem("students");if(s)students=JSON.parse(s)||[];}catch(e){}
+function save(){try{localStorage.setItem("students",JSON.stringify(students));}catch(e){}}
+function grade(x){return x>=90?"A":x>=80?"B":x>=70?"C":x>=60?"D":"F";}
+function esc(t){return t.replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];});}
+function render(){
+  var st=document.getElementById("stats"),rp=document.getElementById("report");
+  if(!students.length){st.innerHTML="";rp.innerHTML='<div class="empty">No students yet. Add a name and score above.</div>';return;}
+  var sum=0,hi=students[0],lo=students[0];
+  students.forEach(function(x){sum+=x.score;if(x.score>hi.score)hi=x;if(x.score<lo.score)lo=x;});
+  st.innerHTML='<div class="stat"><b>'+(sum/students.length).toFixed(2)+'</b><span>Average</span></div>'+
+   '<div class="stat hi"><b>'+hi.score.toFixed(2)+'</b><span>Highest: '+esc(hi.name)+'</span></div>'+
+   '<div class="stat lo"><b>'+lo.score.toFixed(2)+'</b><span>Lowest: '+esc(lo.name)+'</span></div>';
+  var rows=students.map(function(x,i){return'<tr><td>'+(i+1)+'</td><td>'+esc(x.name)+'</td><td class="n">'+x.score.toFixed(2)+'</td><td>'+grade(x.score)+'</td><td><button class="link" data-i="'+i+'">Remove</button></td></tr>';}).join("");
+  rp.innerHTML='<table><thead><tr><th>#</th><th>Name</th><th>Score</th><th>Grade</th><th></th></tr></thead><tbody>'+rows+'</tbody></table>';
+}
+document.getElementById("f").addEventListener("submit",function(e){
+  e.preventDefault();var f=e.target,name=f.name.value.trim(),sc=parseFloat(f.score.value),m=document.getElementById("msg");
+  if(!name){m.textContent="Enter a student name.";return;}
+  if(isNaN(sc)||sc<0||sc>100){m.textContent="Score must be a number from 0 to 100.";return;}
+  m.textContent="";students.push({name:name,score:sc});save();render();f.reset();f.name.focus();
+});
+document.getElementById("report").addEventListener("click",function(e){
+  var i=e.target.getAttribute("data-i");if(i!==null){students.splice(+i,1);save();render();}
+});
+document.getElementById("clear").addEventListener("click",function(){students=[];save();render();});
+document.getElementById("csv").addEventListener("click",function(){
+  if(!students.length)return;
+  var t="Name,Score,Grade\n"+students.map(function(x){return'"'+x.name.replace(/"/g,'""')+'",'+x.score+","+grade(x.score);}).join("\n");
+  var a=document.createElement("a");a.href="data:text/csv;charset=utf-8,"+encodeURIComponent(t);a.download="grades.csv";a.click();
+});
+render();
+</script>
+</body>
+</html>
